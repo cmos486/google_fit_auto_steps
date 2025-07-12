@@ -8,6 +8,7 @@ import pytz
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
 # ---------------- CONFIGURACIÓN ----------------
@@ -15,7 +16,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CREDENTIALS_FILE = os.path.join(BASE_DIR, 'credentials.json')
 TOKEN_FILE       = os.path.join(BASE_DIR, 'token.json')
 TARGET_STEPS     = 20000
-# Zona horaria local (por ejemplo, 'Europe/Madrid')
+# Zona horaria local (p.ej. 'Europe/Madrid')
 LOCAL_TZ = pytz.timezone('Europe/Madrid')
 # Scopes de acceso a Google Fit
 SCOPES = [
@@ -30,10 +31,18 @@ httplib2.debuglevel = 0
 
 
 def get_credentials():
-    """Carga credenciales OAuth2, solicita autorización si no existen o están caducas."""
+    """Carga credenciales OAuth2 y refresca token si expira."""
     creds = None
+    # Carga credenciales existentes
     if os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+    # Refrescar si expiró y existe refresh_token
+    if creds and creds.expired and creds.refresh_token:
+        logging.info('🔄 Refrescando token de acceso')
+        creds.refresh(Request())
+        with open(TOKEN_FILE, 'w') as token_file:
+            token_file.write(creds.to_json())
+    # Si no hay credenciales válidas, inicia flujo interactivo
     if not creds or not creds.valid:
         flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
         creds = flow.run_local_server(port=0, prompt='consent')
@@ -107,10 +116,10 @@ def insert_steps(service, steps_to_add: int):
         'value': [{'intVal': steps_to_add}]
     }
     body = {
-        'dataSourceId': ds_id,
+        'dataSourceId':  ds_id,
         'minStartTimeNs': str(start_ns),
         'maxEndTimeNs': str(end_ns),
-        'point': [point]
+        'point':          [point]
     }
     service.users().dataSources().datasets().patch(
         userId='me',
@@ -145,3 +154,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
