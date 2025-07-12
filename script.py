@@ -1,8 +1,9 @@
 import os
 import sys
 import datetime
-import httplib2
 import logging
+import httplib2
+import pytz
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -16,9 +17,11 @@ SCOPES = [
 CREDENTIALS_FILE = 'credentials.json'
 TOKEN_FILE = 'token.json'
 TARGET_STEPS = 20000
+# Zona horaria local (por ejemplo, Europa/Madrid)
+LOCAL_TZ = pytz.timezone('Europe/Madrid')
 # ------------------------------------------------
 
-# Configuración de logging
+# Logging
 logging.basicConfig(level=logging.INFO)
 httplib2.debuglevel = 0
 
@@ -39,19 +42,26 @@ def get_credentials():
     return creds
 
 
-def millis(dt: datetime.datetime) -> int:
-    return int(dt.timestamp() * 1e3)
+def get_local_period():
+    """Devuelve timestamps de inicio y ahora en nanosegundos, usando hora local."""
+    now = datetime.datetime.now(LOCAL_TZ)
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_ns = int(start.timestamp() * 1e9)
+    end_ns = int(now.timestamp() * 1e9)
+    return start_ns, end_ns
 
 
 def get_today_steps(service) -> int:
     """Lee el total de pasos de hoy usando la API de agregación."""
-    now = datetime.datetime.utcnow()
-    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_ns, end_ns = get_local_period()
+    # La API de aggregate usa milisegundos
+    start_ms = start_ns // 1_000_000
+    end_ms = end_ns // 1_000_000
     body = {
         "aggregateBy": [{"dataTypeName": "com.google.step_count.delta"}],
-        "bucketByTime": {"durationMillis": millis(now) - millis(start)},
-        "startTimeMillis": millis(start),
-        "endTimeMillis": millis(now)
+        "bucketByTime": {"durationMillis": end_ms - start_ms},
+        "startTimeMillis": start_ms,
+        "endTimeMillis": end_ms
     }
     resp = service.users().dataset().aggregate(userId='me', body=body).execute()
     total = sum(
@@ -65,9 +75,8 @@ def get_today_steps(service) -> int:
 
 
 def insert_steps(service, steps_to_add: int):
-    now = datetime.datetime.utcnow()
-    start_ns = int(now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1e9)
-    end_ns = int(now.timestamp() * 1e9)
+    """Inserta los pasos faltantes en Google Fit."""
+    start_ns, end_ns = get_local_period()
     ds_name = "python_auto_steps"
 
     # Buscar o crear dataSource
@@ -131,7 +140,6 @@ def main():
     except Exception as e:
         err_msg = f"Error al actualizar Google Fit: {type(e).__name__}: {e}"
         logging.error(err_msg)
-        # Impresión de error en consola y salida con código 1
         print(f"🚨 {err_msg}", file=sys.stderr)
         sys.exit(1)
 

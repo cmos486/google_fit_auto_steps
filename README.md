@@ -1,30 +1,38 @@
 # Google Fit Auto Steps
 
-Este proyecto contiene un script en Python 3 para automatizar diariamente el registro de **20 000 pasos** en Google Fit, así como su verificación y notificación en caso de fallo.
+Este proyecto contiene un script en Python 3 para automatizar diariamente el registro de **20 000 pasos** en Google Fit, usando tu hora local, y notificando si algo falla.
 
 ---
 
 ## Contenido
 
-- [`script.py`](script.py): código principal del script.
-- `credentials.json`: credenciales OAuth 2.0 de Google Cloud.
-- `token.json`: token de usuario (generado tras el primer flujo de autorización).
+- `script.py`: código principal del script.
+- `credentials.json`: credenciales OAuth 2.0 de Google Cloud.
+- `token.json`: token de usuario (generado en la primera ejecución).
+- `venv/`: entorno virtual (no subirlo al repositorio).
 
 ---
 
 ## Requisitos
 
-- Python 3.7 o superior.
-- Paquetes de Python:
+- **Python 3.7** o superior.
+
+- Paquetes de Python (instalados en entorno virtual):
+
   ```bash
   pip install --upgrade \
     google-auth-oauthlib \
     google-auth-httplib2 \
-    google-api-python-client
+    google-api-python-client \
+    pytz
   ```
-- Tener una [cuenta de Google Cloud](https://console.developers.google.com/) con:
-  - Proyecto habilitado para **Fitness API**.
-  - OAuth 2.0 Client ID (aplicación de escritorio) y su archivo `credentials.json`.
+
+- **Opcional**: para crear un virtualenv en Debian/Ubuntu:
+
+  ```bash
+  sudo apt update
+  sudo apt install python3-venv python3-pip
+  ```
 
 ---
 
@@ -33,100 +41,86 @@ Este proyecto contiene un script en Python 3 para automatizar diariamente el reg
 1. Clona este repositorio:
 
    ```bash
-   git clone https://github.com/tu-usuario/google-fit-auto-steps.git
-   cd google-fit-auto-steps
+   git clone https://github.com/cmos486/google_fit_auto_steps.git
+   cd google_fit_auto_steps
    ```
 
-2. Copia tu archivo de credenciales en la raíz del proyecto como `credentials.json`.
+2. Crea y activa un entorno virtual:
 
-3. Borra cualquier token previo (si existe):
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+3. Instala dependencias dentro del venv:
+
+   ```bash
+   pip install --upgrade \
+     google-auth-oauthlib \
+     google-auth-httplib2 \
+     google-api-python-client \
+     pytz
+   ```
+
+4. Copia tu `credentials.json` (OAuth 2.0 Client ID) a la raíz del proyecto.
+
+5. Borra `token.json` si existe:
 
    ```bash
    rm -f token.json
    ```
 
-4. Abre `script.py` y verifica:
+6. Abre `script.py` y ajusta la zona horaria local si es necesario:
 
    ```python
-   SCOPES = [
-       'https://www.googleapis.com/auth/fitness.activity.read',
-       'https://www.googleapis.com/auth/fitness.activity.write'
-   ]
-   CREDENTIALS_FILE = 'credentials.json'
-   TOKEN_FILE = 'token.json'
-   TARGET_STEPS = 20000
+   # Ejemplo para Europa/Madrid:
+   LOCAL_TZ = pytz.timezone('Europe/Madrid')
    ```
 
 ---
 
 ## Primer ejecución
 
-Al ejecutar por primera vez, el script abrirá el navegador para que autorices los permisos de **lectura y escritura** en Google Fit.
+Con el entorno virtual activo, lanza:
 
 ```bash
 python3 script.py
 ```
 
-- Tras conceder permisos, se generará `token.json` con el token de acceso.
-- Verás en consola el número de pasos actuales del día y la inserción (si corresponde).
+- Se abrirá tu navegador para autorizar lectura/escritura en Google Fit.
+- Generará `token.json` con tus tokens.
+- Verás en consola el total de pasos de hoy y la inserción (si faltan pasos).
 
 ---
 
-## Uso regular
+## Uso diario / cron
 
-Ejecuta manualmente:
+Con el venv activado, puedes ejecutar manualmente:
 
 ```bash
+source venv/bin/activate
 python3 script.py
 ```
 
-La lógica es:
-
-1. Agrega permisos de lectura y escritura.
-2. Obtiene pasos registrados hoy.
-3. Si ya hay ≥ 20 000 pasos, informa y no hace nada.
-4. Si hay menos, registra la diferencia.
-5. En caso de error, imprime en `stderr` y sale con código 1.
-
----
-
-## Automatización con cron
-
-Para ejecutar cada 30 minutos, añade al crontab (`crontab -e`):
+Para automatizar cada 30 min, añade al crontab (`crontab -e`):
 
 ```cron
-*/30 * * * * /usr/bin/python3 /ruta/al/proyecto/script.py >> /ruta/al/proyecto/fit.log 2>&1
+*/30 * * * * cd /ruta/a/google_fit_auto_steps && \
+  source venv/bin/activate && \
+  python3 script.py >> /ruta/a/fit.log 2>&1
 ```
 
-- `>> fit.log`: guarda salida estándar.
-- `2>&1`: guarda errores en el mismo log.
+---
+
+## Personalización
+
+- Cambia la meta de pasos modificando `TARGET_STEPS` al inicio de `script.py`.
+- Ajusta la zona (`LOCAL_TZ`) a tu ubicación.
+- Para más notificaciones (Slack, Telegram…), edita el bloque `except` en `main()`.
 
 ---
 
-## Depuración y logs
+## Licencia
 
-- Para activar traza HTTP, ajusta en `script.py`:
-  ```python
-  httplib2.debuglevel = 4
-  logging.basicConfig(level=logging.DEBUG)
-  ```
-- Los mensajes de estado y errores se imprimen en consola.
-
----
-
-## FAQs
-
-- **¿Dónde se guarda **``**?**
-
-  - En el mismo directorio del script.
-
-- **¿Cómo cambio la meta de pasos?**
-
-  - Modifica `TARGET_STEPS` en el inicio de `script.py`.
-
-- **¿Puedo notificar por otro canal?**
-
-  - Sí: en el bloque `except`, sustituye la función de notificación.
-
----
+MIT © Kilian Ubeda Cano
 
