@@ -1,4 +1,6 @@
 __pycache__/
 *.py[cod]
 token.json
+credentials.json
 .env
+fit.log
