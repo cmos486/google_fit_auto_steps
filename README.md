@@ -13,7 +13,7 @@ Antes de configurar y ejecutar el script, crea un proyecto en Google Cloud y hab
 3. Dirígete a **API y servicios > Credenciales** y selecciona **+ Crear credenciales > ID de cliente OAuth**:
    - Tipo de aplicación: **Escritorio**.
    - Nombre: p.ej. `GoogleFit Auto Steps`.
-4. Descarga el JSON generado y renómbralo ``.
+4. Descarga el JSON generado y renómbralo `credentials.json`.
 5. En **Pantalla de consentimiento OAuth** configura:
    - Nombre de la aplicación y contacto.
    - Scopes autorizados:
